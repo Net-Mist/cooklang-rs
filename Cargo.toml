@@ -11,7 +11,3 @@ crate-type = ["cdylib"]
 [dependencies]
 cooklang-rs = { path = "cooklang-rs" }
 pyo3 = { version = "0.16.5", features = ["extension-module"] }
-
-
-[workspace]
-members = ["cooklang-rs"]
