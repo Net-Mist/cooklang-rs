@@ -1,0 +1,17 @@
+[package]
+name = "cooklang"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "cooklang"
+crate-type = ["cdylib"]
+
+[dependencies]
+cooklang-rs = { path = "cooklang-rs" }
+pyo3 = { version = "0.16.5", features = ["extension-module"] }
+
+
+[workspace]
+members = ["cooklang-rs"]
