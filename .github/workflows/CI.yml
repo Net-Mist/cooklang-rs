@@ -15,7 +15,6 @@ jobs:
         architecture: x64
     - uses: PyO3/maturin-action@v1
       with:
-        manylinux: auto
         command: build
         args: --release --sdist -o dist
     - name: Upload wheels

@@ -31,14 +31,14 @@ fn parse(text: &str) -> Vec<Vec<HashMap<&str, String>>> {
                     i.insert("type", "timer".to_string());
                     i.insert("name", timer.name);
                     i.insert("quantity", timer.quantity);
-                    i.insert("unit", timer.unit);
+                    i.insert("units", timer.units);
                     out_line.push(i)
                 },
                 Part::Ingredient(ingredient) => {
                     i.insert("type", "ingredient".to_string());
                     i.insert("name", ingredient.name);
                     i.insert("quantity", ingredient.quantity);
-                    i.insert("unit", ingredient.unit);
+                    i.insert("units", ingredient.units);
                     out_line.push(i)
                 },
                 Part::Text(string) => {

@@ -1,4 +1,4 @@
-use cooklang_rs::parser::{parse, Part, Timer};
+use cooklang_rs::parser::{parse, Part};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -69,7 +69,7 @@ struct CanonicalTests {
 
 #[test]
 fn test_canonical() {
-    let mut tests: CanonicalTests = serde_yaml::from_str(include_str!("canonical.yaml")).unwrap();
+    let tests: CanonicalTests = serde_yaml::from_str(include_str!("canonical.yaml")).unwrap();
     println!("canonical tests version {}", tests.version);
     for (name, mut test) in tests.tests {
         println!("test {name}");
@@ -108,7 +108,7 @@ fn test_canonical() {
                     },
                     (Step::StepTNQU(t), Part::Timer(t2)) => {
                         assert_eq!(t2.name, t.name);
-                        assert_eq!(t2.unit, t.units);
+                        assert_eq!(t2.units, t.units);
                         assert_eq!(t.t, "timer");
                         assert_eq!(t2.quantity, t.quantity.to_string());
                     },
@@ -124,7 +124,7 @@ fn test_canonical() {
                     (Step::StepTNQU(t), Part::Ingredient(ingredient)) => {
                         assert_eq!(t.t, "ingredient");
                         assert_eq!(ingredient.name, t.name);
-                        assert_eq!(ingredient.unit, t.units);
+                        assert_eq!(ingredient.units, t.units);
                         if ingredient.quantity != "" {
                             assert_eq!(ingredient.quantity, t.quantity.to_string());
                         } else {

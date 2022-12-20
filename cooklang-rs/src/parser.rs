@@ -21,7 +21,7 @@ pub struct Metadata {
 pub struct Ingredient {
     pub name: String,
     pub quantity: String,
-    pub unit: String,
+    pub units: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Default)]
@@ -34,7 +34,7 @@ pub struct Cookware {
 pub struct Timer {
     pub name: String,
     pub quantity: String,
-    pub unit: String,
+    pub units: String,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -148,18 +148,18 @@ fn ingredient(input: &str) -> IResult<&str, Part> {
     preceded(
         preceded(space0, tag("@")),
         alt((
-            map(multi_word_item, |(word, quantity, unit)| {
+            map(multi_word_item, |(word, quantity, units)| {
                 Part::Ingredient(Ingredient {
                     name: word,
                     quantity,
-                    unit,
+                    units,
                 })
             }),
             map(word, |word| {
                 Part::Ingredient(Ingredient {
                     name: word,
                     quantity: String::from(""),
-                    unit: String::from(""),
+                    units: String::from(""),
                 })
             }),
         )),
@@ -190,25 +190,25 @@ fn timer(input: &str) -> IResult<&str, Part> {
     preceded(
         preceded(space0, tag("~")),
         alt((
-            map(multi_word_item, |(word, quantity, unit)| {
+            map(multi_word_item, |(word, quantity, units)| {
                 Part::Timer(Timer {
                     name: word,
                     quantity,
-                    unit,
+                    units,
                 })
             }),
             map(word, |word| {
                 Part::Timer(Timer {
                     name: word,
                     quantity: String::from(""),
-                    unit: String::from(""),
+                    units: String::from(""),
                 })
             }),
-            map(amount, |(quantity, unit)| {
+            map(amount, |(quantity, units)| {
                 Part::Timer(Timer {
                     name: "".to_string(),
                     quantity,
-                    unit,
+                    units,
                 })
             })
         )),
@@ -404,7 +404,7 @@ mod tests {
                 vec![Part::Ingredient(Ingredient {
                     name: "thyme".to_string(),
                     quantity: "2".to_string(),
-                    unit: "springs".to_string()
+                    units: "springs".to_string()
                 })],
                 vec![Part::Text("and some text".to_string())]
             ]
@@ -420,7 +420,7 @@ mod tests {
             vec![vec![Part::Ingredient(Ingredient {
                 name: "thyme".to_string(),
                 quantity: "2".to_string(),
-                unit: "springs".to_string()
+                units: "springs".to_string()
             }),]]
         );
     }
@@ -436,19 +436,19 @@ mod tests {
                 Part::Ingredient(Ingredient {
                     name: "chilli".to_string(),
                     quantity: "3".to_string(),
-                    unit: "items".to_string()
+                    units: "items".to_string()
                 }),
                 Part::Text(",".to_string()),
                 Part::Ingredient(Ingredient {
                     name: "ginger".to_string(),
                     quantity: "10".to_string(),
-                    unit: "g".to_string()
+                    units: "g".to_string()
                 }),
                 Part::Text("and".to_string()),
                 Part::Ingredient(Ingredient {
                     name: "milk".to_string(),
                     quantity: "1".to_string(),
-                    unit: "l".to_string()
+                    units: "l".to_string()
                 }),
                 Part::Text(".".to_string())
             ]]
@@ -521,7 +521,7 @@ mod tests {
                 Part::Ingredient(Ingredient {
                     name: "🧂".to_string(),
                     quantity: "".to_string(),
-                    unit: "".to_string()
+                    units: "".to_string()
                 })
             ]]
         )
@@ -534,7 +534,7 @@ mod tests {
             vec![vec![Part::Ingredient(Ingredient {
                 name: "chilli".to_string(),
                 quantity: "3".to_string(),
-                unit: "items".to_string()
+                units: "items".to_string()
             })]]
         )
     }
@@ -546,7 +546,7 @@ mod tests {
             vec![vec![Part::Ingredient(Ingredient {
                 name: "chilli".to_string(),
                 quantity: "3".to_string(),
-                unit: "items".to_string()
+                units: "items".to_string()
             })]]
         )
     }
@@ -567,9 +567,9 @@ Place @bacon strips{1%kg} on a baking sheet and glaze with @syrup{1/2%tbsp}.
                 vec![Part::Metadata(Metadata { key: "source".to_string(), value: "https://www.gimmesomeoven.com/baked-potato/".to_string() })],
                 vec![Part::Metadata(Metadata { key: "time required".to_string(), value: "1.5 hours".to_string() })],
                 vec![Part::Metadata(Metadata { key: "course".to_string(), value: "dinner".to_string() })],
-                vec![Part::Text("Mash".to_string()), Part::Ingredient(Ingredient { name: "potato".to_string(), quantity: "2".to_string(), unit: "kg".to_string() }), Part::Text("until smooth".to_string())],
-                vec![Part::Text("Place".to_string()), Part::Ingredient(Ingredient { name: "bacon strips".to_string(), quantity: "1".to_string(), unit: "kg".to_string() }), Part::Text("on a baking sheet and glaze with".to_string()),
-                Part::Ingredient(Ingredient { name: "syrup".to_string(), quantity: "1/2".to_string(), unit: "tbsp".to_string() }), Part::Text(".".to_string())],
+                vec![Part::Text("Mash".to_string()), Part::Ingredient(Ingredient { name: "potato".to_string(), quantity: "2".to_string(), units: "kg".to_string() }), Part::Text("until smooth".to_string())],
+                vec![Part::Text("Place".to_string()), Part::Ingredient(Ingredient { name: "bacon strips".to_string(), quantity: "1".to_string(), units: "kg".to_string() }), Part::Text("on a baking sheet and glaze with".to_string()),
+                Part::Ingredient(Ingredient { name: "syrup".to_string(), quantity: "1/2".to_string(), units: "tbsp".to_string() }), Part::Text(".".to_string())],
             ]
         )
     }
