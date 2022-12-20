@@ -1,0 +1,66 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v2.37.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.0-alpha.4
+    hooks:
+      - id: prettier
+        args: ["--print-width=120"]
+        exclude: "CHANGELOG.md"
+        stages: [commit]
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.2.2
+    hooks:
+      - id: pyupgrade
+        args: ["--py38-plus"]
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        name: isort (python)
+        args:
+          - --profile=black
+          - --line-length=120
+        # isort can't find local imports if the path of the local packages are not relative from the root of the repo.
+        # In this case, packages need to be added here
+        # - --known-local-folder=
+  - repo: https://github.com/psf/black
+    rev: 22.10.0
+    hooks:
+      - id: black-jupyter
+        args:
+          - --line-length=120
+          - --target-version=py38
+  - repo: https://github.com/PyCQA/flake8
+    rev: 5.0.4
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-bugbear
+          - flake8-implicit-str-concat
+          - flake8-annotations
+        args: ["--max-line-length=120", "--ignore=ANN204,ANN101,ANN102,ANN002,ANN003,ANN401,E203,W503"]
+        # we ignore errors
+        # -ANN204: "Missing return type annotation for special method"
+        # -ANN101: "Missing type annotation for self in method"
+        # -ANN102 "Missing type annotation for cls in classmethod"
+        # -ANN002 "Missing type annotation for *args"
+        # -ANN003 "Missing type annotation for *kwargs"
+        # -ANN401 Dynamically typed expressions (typing.Any) are disallowed
+        # -W503 "Line break occurred before a binary operator" See https://www.flake8rules.com/rules/W503.html
+        # -E203:  whitespace before ':' because pep8 is wrong here. See https://github.com/psf/black/issues/315
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+      - id: cargo-check
+      - id: clippy

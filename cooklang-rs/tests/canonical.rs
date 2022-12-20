@@ -1,6 +1,7 @@
 use cooklang_rs::parser::{parse, Part};
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
@@ -10,13 +11,17 @@ enum Quantity {
     Float(f32),
 }
 
-impl Quantity {
-    fn to_string(self: &Self) -> String {
-        match self {
-            Quantity::Int(a) => {a.to_string()},
-            Quantity::Str(a) => a.clone(),
-            Quantity::Float(a) => a.to_string(),
-        }
+impl fmt::Display for Quantity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Quantity::Int(a) => a.to_string(),
+                Quantity::Str(a) => a.clone(),
+                Quantity::Float(a) => a.to_string(),
+            }
+        )
     }
 }
 
@@ -44,9 +49,9 @@ struct StepTV {
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 enum Step {
-    StepTV(StepTV),
-    StepTNQU(StepTNQU),
-    StepTNQ(StepTNQ),
+    Tv(StepTV),
+    Tnqu(StepTNQU),
+    Tnq(StepTNQ),
 }
 
 #[derive(Deserialize, Debug)]
@@ -73,7 +78,10 @@ fn test_canonical() {
     println!("canonical tests version {}", tests.version);
     for (name, mut test) in tests.tests {
         println!("test {name}");
-        if name == "testTimerFractional" || name == "testFractionsWithSpaces" || name == "testFractions"{
+        if name == "testTimerFractional"
+            || name == "testFractionsWithSpaces"
+            || name == "testFractions"
+        {
             // skip
             continue;
         }
@@ -81,14 +89,14 @@ fn test_canonical() {
 
         let mut step_indice = 0;
         for out_step in out.into_iter() {
-            // 2 cases : 
+            // 2 cases :
             // - a vect with a single metadata
             // - a vect with a multiple other steps
-            if out_step.len() == 1{
+            if out_step.len() == 1 {
                 if let Part::Metadata(metadata) = out_step.get(0).unwrap() {
                     println!("metadata key {}", metadata.key);
                     println!("metadata possible keys {:?}", test.result.metadata.keys());
-                    assert!(test.result.metadata.contains_key(&metadata.key)); 
+                    assert!(test.result.metadata.contains_key(&metadata.key));
                     let v = test.result.metadata.remove(&metadata.key).unwrap();
                     assert_eq!(metadata.value, v);
                     continue;
@@ -100,44 +108,43 @@ fn test_canonical() {
             println!("{:?}, \n{:?}", steps, out_step);
             println!("{:?}, {:?}", steps.len(), out_step.len());
             assert_eq!(steps.len(), out_step.len());
-            for (a, b) in steps.into_iter().zip(out_step.into_iter()) {
+            for (a, b) in steps.iter().zip(out_step.into_iter()) {
                 match (a, b) {
-                    (Step::StepTV(t), Part::Text(string)) => {
+                    (Step::Tv(t), Part::Text(string)) => {
                         assert_eq!(t.t, "text");
                         assert_eq!(t.value.trim(), string);
-                    },
-                    (Step::StepTNQU(t), Part::Timer(t2)) => {
+                    }
+                    (Step::Tnqu(t), Part::Timer(t2)) => {
                         assert_eq!(t2.name, t.name);
                         assert_eq!(t2.units, t.units);
                         assert_eq!(t.t, "timer");
                         assert_eq!(t2.quantity, t.quantity.to_string());
-                    },
-                    (Step::StepTNQ(t), Part::Cookware(cookware)) => {
+                    }
+                    (Step::Tnq(t), Part::Cookware(cookware)) => {
                         assert_eq!(t.t, "cookware");
                         assert_eq!(cookware.name, t.name);
-                        if cookware.quantity != "" {
+                        if !cookware.quantity.is_empty() {
                             assert_eq!(cookware.quantity, t.quantity.to_string());
                         } else {
                             assert_eq!(t.quantity.to_string(), "1");
                         }
-                    },
-                    (Step::StepTNQU(t), Part::Ingredient(ingredient)) => {
+                    }
+                    (Step::Tnqu(t), Part::Ingredient(ingredient)) => {
                         assert_eq!(t.t, "ingredient");
                         assert_eq!(ingredient.name, t.name);
                         assert_eq!(ingredient.units, t.units);
-                        if ingredient.quantity != "" {
+                        if !ingredient.quantity.is_empty() {
                             assert_eq!(ingredient.quantity, t.quantity.to_string());
                         } else {
                             assert_eq!(t.quantity.to_string(), "some");
                         }
-                    },
-                    _ => panic!()
+                    }
+                    _ => panic!(),
                 }
             }
         }
 
         // check that all metadata has been processed
         assert_eq!(test.result.metadata.len(), 0)
-        
     }
 }

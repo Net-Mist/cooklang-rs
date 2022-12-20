@@ -27,7 +27,7 @@ pub struct Ingredient {
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct Cookware {
     pub name: String,
-    pub quantity: String
+    pub quantity: String,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -173,13 +173,13 @@ fn cookware(input: &str) -> IResult<&str, Part> {
             map(multi_word_item, |(word, quantity, _unit)| {
                 Part::Cookware(Cookware {
                     name: word,
-                    quantity: quantity
+                    quantity,
                 })
             }),
             map(word, |word| {
                 Part::Cookware(Cookware {
                     name: word,
-                    quantity: "".to_string()
+                    quantity: "".to_string(),
                 })
             }),
         )),
@@ -210,7 +210,7 @@ fn timer(input: &str) -> IResult<&str, Part> {
                     quantity,
                     units,
                 })
-            })
+            }),
         )),
     )(input)
 }
@@ -258,8 +258,13 @@ pub fn parse(input: String) -> Vec<Vec<Part>> {
         ),
         eof,
     )(pre_processed.trim());
-    
-    a.unwrap().1.0.into_iter().filter(|p| p.len()>0).collect()
+
+    a.unwrap()
+        .1
+         .0
+        .into_iter()
+        .filter(|p| !p.is_empty())
+        .collect()
 }
 
 #[cfg(test)]
