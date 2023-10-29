@@ -2,49 +2,51 @@ name: CI
 
 on:
   push:
-  pull_request:
 
 jobs:
-  linux:
+  pre-commit:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - uses: pre-commit/action@v3.0.0
+
+  rust_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo test
+
+  test_build:
+    runs-on: ${{ matrix.os }}-latest
+    needs: [pre-commit, rust_test]
+    strategy:
+      matrix:
+        python-version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12-dev"
+        os:
+          - "ubuntu"
+          - "windows"
+          - "macos"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.7
+          python-version: ${{ matrix.python-version }}
           architecture: x64
       - uses: PyO3/maturin-action@v1
         with:
+          working-directory: cooklang-py
           command: build
           args: --release --sdist -o dist
-      - name: Upload wheels
-        uses: actions/upload-artifact@v2
-        with:
-          name: wheels
-          path: dist
-
-  windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: PyO3/maturin-action@v1
-        with:
-          command: build
-          args: --release -o dist
-      - name: Upload wheels
-        uses: actions/upload-artifact@v2
-        with:
-          name: wheels
-          path: dist
-
-  macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: PyO3/maturin-action@v1
-        with:
-          command: build
-          args: --release -o dist --universal2
+      - run: cd cooklang-py && pip install -e . && pip install pyyaml
+      - run: cd cooklang-py && python -m unittest discover -s ./tests
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
@@ -55,7 +57,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [macos, windows, linux]
+    needs: [test_build]
     steps:
       - uses: actions/download-artifact@v2
         with:
@@ -63,6 +65,7 @@ jobs:
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         env:
+          working-directory: cooklang-py
           MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         with:
           command: upload
