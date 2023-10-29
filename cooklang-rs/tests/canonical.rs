@@ -85,7 +85,7 @@ fn test_canonical() {
             // skip
             continue;
         }
-        let out = parse(test.source);
+        let out = parse(&test.source).unwrap_or_default();
 
         let mut step_indice = 0;
         for out_step in out.into_iter() {

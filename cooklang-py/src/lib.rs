@@ -7,7 +7,7 @@ use pyo3::prelude::*;
 /// Formats the sum of two numbers as string.
 #[pyfunction]
 fn parse(text: String) -> Vec<Vec<HashMap<String, String>>> {
-    let r = parser::parse(text);
+    let r = parser::parse(&text).unwrap_or_default();
     let mut out = Vec::new();
     for l in r.into_iter() {
         let mut out_line = Vec::new();
