@@ -70,4 +70,6 @@ docs/_build/
 
 # Pyenv
 .python-version
+
+# Other
 *.cook
