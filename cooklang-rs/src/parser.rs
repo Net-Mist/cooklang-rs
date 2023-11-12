@@ -3,13 +3,13 @@ use nom::bytes::complete::{tag, take, take_until, take_while, take_while1};
 use nom::branch::alt;
 
 use nom::character::complete::space0;
-use nom::character::complete::space1;
 use nom::combinator::eof;
-use nom::combinator::map_res;
 use nom::combinator::{map, value};
-use nom::multi::{fold_many0, fold_many1, many_till};
+use nom::multi::{fold_many1, many_till};
 use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
 use nom::IResult;
+
+use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Metadata {
@@ -47,6 +47,14 @@ pub enum Part {
     Text(String),
 }
 
+#[derive(Error, Debug)]
+pub enum ParserError {
+    #[error("can't parse comments")]
+    Comments(String),
+    #[error("can't parse file")]
+    Parse(String),
+}
+
 /// block comments = "[", "-", ? any character except "-" followed by "]" ?, "-", "]" ;
 fn block_comment(input: &str) -> IResult<&str, &str> {
     value("", delimited(tag("[-"), take_until("-]"), tag("-]")))(input)
@@ -62,7 +70,7 @@ fn comment(input: &str) -> IResult<&str, &str> {
     alt((block_comment, line_comment))(input)
 }
 
-pub fn remove_comment(input: String) -> String {
+pub fn remove_comment(input: &str) -> Result<String, ParserError> {
     let a = fold_many1(
         alt((comment, take(1u8))),
         String::new,
@@ -70,18 +78,16 @@ pub fn remove_comment(input: String) -> String {
             string.push_str(fragment);
             string
         },
-    )(&input);
-    a.unwrap().1
+    )(input);
+    match a {
+        Ok(e) => Ok(e.1),
+        Err(e) => Err(ParserError::Comments(e.to_string())),
+    }
 }
 
 /// spaces + one or many endline chars
 fn end_line(input: &str) -> IResult<&str, &str> {
     preceded(space0, take_while1(|c| "\n\r".contains(c)))(input)
-}
-
-/// at least one space of tab
-fn space(input: &str) -> IResult<&str, String> {
-    map(space1, |c: &str| c.to_string())(input)
 }
 
 /// word      = { text item - white space - punctuation character }- ;
@@ -92,21 +98,9 @@ fn word(input: &str) -> IResult<&str, String> {
 }
 
 fn multiword(input: &str) -> IResult<&str, String> {
-    map(
-        tuple((
-            word,
-            fold_many0(tuple((space, word)), String::new, |mut string, (s1, s2)| {
-                string.push_str(&s1);
-                string.push_str(&s2);
-                string
-            }),
-        )),
-        |(s1, s2)| {
-            let mut s = s1;
-            s.push_str(&s2);
-            s
-        },
-    )(input)
+    map(take_while1(|c| !"~@#{\n\r".contains(c)), |c: &str| {
+        c.to_string()
+    })(input)
 }
 
 fn trim_spaces(s: &str) -> String {
@@ -146,7 +140,7 @@ fn multi_word_item(input: &str) -> IResult<&str, (String, String, String)> {
 /// one word ingredient  = "@", ( word,                     [ "{", [ amount ], "}" ] ) ;
 fn ingredient(input: &str) -> IResult<&str, Part> {
     preceded(
-        preceded(space0, tag("@")),
+        tag("@"),
         alt((
             map(multi_word_item, |(word, quantity, units)| {
                 Part::Ingredient(Ingredient {
@@ -234,17 +228,15 @@ fn metadata(input: &str) -> IResult<&str, Part> {
 }
 
 fn text(input: &str) -> IResult<&str, Part> {
-    map_res(take_while(|c| !"~@#{\n\r".contains(c)), |w: &str| {
+    map(take_while(|c| !"~@#{\n\r".contains(c)), |w: &str| {
         let s = trim_spaces(w);
-        if s.is_empty() {
-            return Err("no word");
-        }
-        Ok(Part::Text(s))
+        Part::Text(s)
     })(input)
 }
 
-pub fn parse(input: String) -> Vec<Vec<Part>> {
-    let pre_processed = remove_comment(input);
+pub fn parse(input: &str) -> Result<Vec<Vec<Part>>, ParserError> {
+    let pre_processed = remove_comment(input)?;
+
     let a = many_till(
         map(
             alt((
@@ -259,12 +251,25 @@ pub fn parse(input: String) -> Vec<Vec<Part>> {
         eof,
     )(pre_processed.trim());
 
-    a.unwrap()
-        .1
-         .0
-        .into_iter()
-        .filter(|p| !p.is_empty())
-        .collect()
+    match a {
+        Ok(r) => Ok(r
+            .1
+             .0
+            .into_iter()
+            .filter(|p| !p.is_empty())
+            .map(|v| {
+                v.into_iter()
+                    .filter(|part| {
+                        if let Part::Text(s) = part {
+                            return !s.is_empty();
+                        }
+                        true
+                    })
+                    .collect()
+            })
+            .collect()),
+        Err(e) => Err(ParserError::Parse(e.to_string())),
+    }
 }
 
 #[cfg(test)]
@@ -298,15 +303,15 @@ mod tests {
     #[test]
     fn test_remove_comment() {
         assert_eq!(
-            remove_comment(String::from("--foo\n bar")),
+            remove_comment("--foo\n bar").unwrap_or_default(),
             String::from("\n bar")
         );
         assert_eq!(
-            remove_comment(String::from("fo--foo\n bar")),
+            remove_comment("fo--foo\n bar").unwrap_or_default(),
             String::from("fo\n bar")
         );
         assert_eq!(
-            remove_comment(String::from("fo[-bar-]o")),
+            remove_comment("fo[-bar-]o").unwrap_or_default(),
             String::from("foo")
         );
     }
@@ -346,14 +351,14 @@ mod tests {
     #[test]
     fn test_parse() {
         assert_eq!(
-            parse(String::from(">> plop: coucou")),
+            parse(">> plop: coucou").unwrap_or_default(),
             vec![vec![Part::Metadata(Metadata {
                 key: "plop".to_string(),
                 value: "coucou".to_string()
             }),]]
         );
         assert_eq!(
-            parse(String::from(">> plop: coucou\nplop")),
+            parse(">> plop: coucou\nplop").unwrap_or_default(),
             vec![
                 vec![Part::Metadata(Metadata {
                     key: "plop".to_string(),
@@ -362,13 +367,6 @@ mod tests {
                 vec![Part::Text(String::from("plop"))]
             ]
         );
-    }
-
-    #[test]
-    fn test_space() {
-        assert_eq!(space("   "), Ok(("", "   ".to_string())));
-        assert_eq!(space("   aa"), Ok(("aa", "   ".to_string())));
-        assert_eq!(space("   \taa"), Ok(("aa", "   \t".to_string())));
     }
 
     #[test]
@@ -386,7 +384,7 @@ mod tests {
     #[test]
     fn test_basic_direction() {
         assert_eq!(
-            parse(String::from("Add a bit of chilli")),
+            parse("Add a bit of chilli").unwrap_or_default(),
             vec![vec![Part::Text(String::from("Add a bit of chilli"))]]
         );
     }
@@ -394,7 +392,7 @@ mod tests {
     #[test]
     fn test_comments() {
         assert_eq!(
-            parse(String::from("-- testing comments")),
+            parse("-- testing comments").unwrap_or_default(),
             Vec::<Vec<Part>>::new()
         );
     }
@@ -402,9 +400,7 @@ mod tests {
     #[test]
     fn test_comments_after_ingredients() {
         assert_eq!(
-            parse(String::from(
-                "@thyme{2%springs} -- testing comments\n  and some text"
-            )),
+            parse("@thyme{2%springs} -- testing comments\n  and some text").unwrap_or_default(),
             vec![
                 vec![Part::Ingredient(Ingredient {
                     name: "thyme".to_string(),
@@ -419,9 +415,7 @@ mod tests {
     #[test]
     fn test_comments_with_ingredients() {
         assert_eq!(
-            parse(String::from(
-                "-- testing comments\n        @thyme{2%springs}"
-            )),
+            parse("-- testing comments\n        @thyme{2%springs}").unwrap_or_default(),
             vec![vec![Part::Ingredient(Ingredient {
                 name: "thyme".to_string(),
                 quantity: "2".to_string(),
@@ -433,9 +427,7 @@ mod tests {
     #[test]
     fn test_direction_with_ingrident() {
         assert_eq!(
-            parse(String::from(
-                "Add @chilli{3%items}, @ginger{10%g} and @milk{1%l}."
-            )),
+            parse("Add @chilli{3%items}, @ginger{10%g} and @milk{1%l}.").unwrap_or_default(),
             vec![vec![
                 Part::Text("Add".to_string()),
                 Part::Ingredient(Ingredient {
@@ -463,7 +455,7 @@ mod tests {
     #[test]
     fn test_equipment_multiple_words() {
         assert_eq!(
-            parse(String::from("Fry in #frying pan{}")),
+            parse("Fry in #frying pan{}").unwrap_or_default(),
             vec![vec![
                 Part::Text("Fry in".to_string()),
                 Part::Cookware(Cookware {
@@ -477,7 +469,7 @@ mod tests {
     #[test]
     fn test_equipment_multiple_words_with_leading_number() {
         assert_eq!(
-            parse(String::from("Fry in #7-inch nonstick frying pan{ }")),
+            parse("Fry in #7-inch nonstick frying pan{ }").unwrap_or_default(),
             vec![vec![
                 Part::Text("Fry in".to_string()),
                 Part::Cookware(Cookware {
@@ -491,7 +483,7 @@ mod tests {
     #[test]
     fn test_equipment_multiple_words_with_spaces() {
         assert_eq!(
-            parse(String::from("Fry in #frying pan{ }")),
+            parse("Fry in #frying pan{ }").unwrap_or_default(),
             vec![vec![
                 Part::Text("Fry in".to_string()),
                 Part::Cookware(Cookware {
@@ -505,7 +497,7 @@ mod tests {
     #[test]
     fn test_equipment_one_word() {
         assert_eq!(
-            parse(String::from("Simmer in #pan for some time")),
+            parse("Simmer in #pan for some time").unwrap_or_default(),
             vec![vec![
                 Part::Text("Simmer in".to_string()),
                 Part::Cookware(Cookware {
@@ -520,7 +512,7 @@ mod tests {
     #[test]
     fn test_ingredient_with_emoji() {
         assert_eq!(
-            parse(String::from("Add some @🧂")),
+            parse("Add some @🧂").unwrap_or_default(),
             vec![vec![
                 Part::Text("Add some".to_string()),
                 Part::Ingredient(Ingredient {
@@ -535,7 +527,7 @@ mod tests {
     #[test]
     fn test_ingrident_explicit_units() {
         assert_eq!(
-            parse(String::from("@chilli{3%items}")),
+            parse("@chilli{3%items}").unwrap_or_default(),
             vec![vec![Part::Ingredient(Ingredient {
                 name: "chilli".to_string(),
                 quantity: "3".to_string(),
@@ -547,7 +539,7 @@ mod tests {
     #[test]
     fn test_ingrident_explicit_units_with_spaces() {
         assert_eq!(
-            parse(String::from("@chilli{ 3 % items }")),
+            parse("@chilli{ 3 % items }").unwrap_or_default(),
             vec![vec![Part::Ingredient(Ingredient {
                 name: "chilli".to_string(),
                 quantity: "3".to_string(),
@@ -559,8 +551,7 @@ mod tests {
     #[test]
     fn test_full() {
         assert_eq!(
-            parse(String::from(
-                "
+            parse("
 >> source: https://www.gimmesomeoven.com/baked-potato/
 >> time required: 1.5 hours
 >> course: dinner
@@ -568,8 +559,7 @@ mod tests {
 
 Mash @potato{2%kg} until smooth -- alternatively, boil 'em first, then mash 'em, then stick 'em in a stew.
 Place @bacon strips{1%kg} on a baking sheet and glaze with @syrup{1/2%tbsp}.
-"
-            )),
+").unwrap_or_default(),
             vec![
                 vec![Part::Metadata(Metadata {
                     key: "source".to_string(),
@@ -601,6 +591,48 @@ Place @bacon strips{1%kg} on a baking sheet and glaze with @syrup{1/2%tbsp}.
                     }),
                     Part::Text(".".to_string())
                 ],
+            ]
+        )
+    }
+
+    #[test]
+    fn test_ponctuation_in_ingredient_name() {
+        let t = "@tomates fraîches (ou pelées en boîte, à défaut){3}";
+        let p = parse(t).unwrap();
+        assert_eq!(
+            p,
+            vec![vec![Part::Ingredient(Ingredient {
+                name: "tomates fraîches (ou pelées en boîte, à défaut)".to_string(),
+                quantity: "3".to_string(),
+                units: "".to_string()
+            })]]
+        )
+    }
+
+    #[test]
+    fn test_following_ingredients() {
+        let t = "@sel @poivre\n\
+            >> steps: facultatif\n";
+        let p = parse(t).unwrap();
+        assert_eq!(
+            p,
+            vec![
+                vec![
+                    Part::Ingredient(Ingredient {
+                        name: "sel".to_string(),
+                        quantity: "".to_string(),
+                        units: "".to_string(),
+                    },),
+                    Part::Ingredient(Ingredient {
+                        name: "poivre".to_string(),
+                        quantity: "".to_string(),
+                        units: "".to_string(),
+                    },),
+                ],
+                vec![Part::Metadata(Metadata {
+                    key: "steps".to_string(),
+                    value: "facultatif".to_string(),
+                },),]
             ]
         )
     }
