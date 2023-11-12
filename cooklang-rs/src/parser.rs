@@ -559,7 +559,8 @@ mod tests {
     #[test]
     fn test_full() {
         assert_eq!(
-            parse(String::from("
+            parse(String::from(
+                "
 >> source: https://www.gimmesomeoven.com/baked-potato/
 >> time required: 1.5 hours
 >> course: dinner
@@ -567,14 +568,39 @@ mod tests {
 
 Mash @potato{2%kg} until smooth -- alternatively, boil 'em first, then mash 'em, then stick 'em in a stew.
 Place @bacon strips{1%kg} on a baking sheet and glaze with @syrup{1/2%tbsp}.
-")),
+"
+            )),
             vec![
-                vec![Part::Metadata(Metadata { key: "source".to_string(), value: "https://www.gimmesomeoven.com/baked-potato/".to_string() })],
+                vec![Part::Metadata(Metadata {
+                    key: "source".to_string(),
+                    value: "https://www.gimmesomeoven.com/baked-potato/".to_string()
+                })],
                 vec![Part::Metadata(Metadata { key: "time required".to_string(), value: "1.5 hours".to_string() })],
                 vec![Part::Metadata(Metadata { key: "course".to_string(), value: "dinner".to_string() })],
-                vec![Part::Text("Mash".to_string()), Part::Ingredient(Ingredient { name: "potato".to_string(), quantity: "2".to_string(), units: "kg".to_string() }), Part::Text("until smooth".to_string())],
-                vec![Part::Text("Place".to_string()), Part::Ingredient(Ingredient { name: "bacon strips".to_string(), quantity: "1".to_string(), units: "kg".to_string() }), Part::Text("on a baking sheet and glaze with".to_string()),
-                Part::Ingredient(Ingredient { name: "syrup".to_string(), quantity: "1/2".to_string(), units: "tbsp".to_string() }), Part::Text(".".to_string())],
+                vec![
+                    Part::Text("Mash".to_string()),
+                    Part::Ingredient(Ingredient {
+                        name: "potato".to_string(),
+                        quantity: "2".to_string(),
+                        units: "kg".to_string()
+                    }),
+                    Part::Text("until smooth".to_string())
+                ],
+                vec![
+                    Part::Text("Place".to_string()),
+                    Part::Ingredient(Ingredient {
+                        name: "bacon strips".to_string(),
+                        quantity: "1".to_string(),
+                        units: "kg".to_string()
+                    }),
+                    Part::Text("on a baking sheet and glaze with".to_string()),
+                    Part::Ingredient(Ingredient {
+                        name: "syrup".to_string(),
+                        quantity: "1/2".to_string(),
+                        units: "tbsp".to_string()
+                    }),
+                    Part::Text(".".to_string())
+                ],
             ]
         )
     }
